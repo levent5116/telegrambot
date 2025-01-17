@@ -56,7 +56,7 @@ async def fetch_steam_user(message: types.Message):
     else:
         await message.reply("Не удалось получить список игр. Возможно, профиль Steam закрыт или у пользователя нет игр.")
 
-
+#Создание кнопки для навигации по боту
 @dp.message_handler(commands=['help'])
 async def fetch_steam_user(message: types.Message):
     args = message.get_args()
