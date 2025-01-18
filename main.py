@@ -7,6 +7,10 @@ from config import API_TOKEN, STEAM_API_KEY
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
+# ответ на команду /start
+@dp.message_handler(commands=['start'])
+async def process_start_command(message: types.Message):
+    await message.reply("Привет! Напиши /help, чтобы узнать о моих функциях!")
 
 # Функция для получения данных об играх пользователя
 async def fetch_steam_games(steam_id):
@@ -56,7 +60,7 @@ async def fetch_steam_user(message: types.Message):
     else:
         await message.reply("Не удалось получить список игр. Возможно, профиль Steam закрыт или у пользователя нет игр.")
 
-#Создание кнопки для навигации по боту
+
 @dp.message_handler(commands=['help'])
 async def fetch_steam_user(message: types.Message):
     args = message.get_args()
