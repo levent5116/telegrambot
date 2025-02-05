@@ -1,3 +1,4 @@
+import asyncio
 import aiohttp
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
@@ -7,7 +8,7 @@ from config import API_TOKEN, STEAM_API_KEY
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# ответ на команду /start
+# обработчик команды /start
 @dp.message_handler(commands=['start'])
 async def process_start_command(message: types.Message):
     await message.reply("Привет! Напиши /help, чтобы узнать о моих функциях!")
@@ -60,12 +61,12 @@ async def fetch_steam_user(message: types.Message):
     else:
         await message.reply("Не удалось получить список игр. Возможно, профиль Steam закрыт или у пользователя нет игр.")
 
-
+#обработчик команды /help
 @dp.message_handler(commands=['help'])
 async def fetch_steam_user(message: types.Message):
     args = message.get_args()
     if not args:
-        await message.reply('Напишите /steam и ID нужного аккаунта, а затем получите информацию об играх.\n'
+        await message.reply('Напишите /steam {Ваш Steam ID} нужного аккаунта, а затем получите информацию об играх или /track {Ваш Steam ID}, чтобы начать отслеживать активность.\n'
                             'Чтобы найти ID:\n'
                             '1. Зайдите в steam\n'
                             '2. Нажмите "Об аккаунте"\n'
@@ -74,22 +75,84 @@ async def fetch_steam_user(message: types.Message):
     steam_id = args.strip()
     
 
-# Обработчик произвольного сообщения с инлайн-кнопкой для вызова команды /steam
+
+tracked_users = {}
+async def fetch_steam_status(steam_id):
+    url = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={STEAM_API_KEY}&format=json&steamids={steam_id}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                data = await response.json()
+                if data and "response" in data and "players" in data["response"]:
+                    return data["response"]["players"][0]
+            return None
+
+async def track_user_activity(steam_id, chat_id):
+    last_game = None
+
+    while steam_id in tracked_users:  # Отслеживаем, пока пользователь есть в списке
+        status = await fetch_steam_status(steam_id)
+        if status:
+            game_name = status.get("gameextrainfo")
+            if game_name and game_name != last_game:
+                last_game = game_name
+                await bot.send_message(chat_id, f"Пользователь Steam ID {steam_id} начал играть в {game_name}.")
+            elif not game_name and last_game:
+                await bot.send_message(chat_id, f"Пользователь Steam ID {steam_id} больше не играет.")
+                last_game = None
+        await asyncio.sleep(30)  # Задержка между проверками (30 секунд)
+
+# Обработчик команды /track {steam_id}
+@dp.message_handler(commands=['track'])
+async def start_tracking(message: types.Message):
+    args = message.get_args()
+    if not args:
+        await message.reply("Пожалуйста, укажите Steam ID после команды. Пример: /track 76561197960435530")
+        return
+    steam_id = args.strip()
+
+    if not steam_id.isdigit():
+        await message.reply("Неверный формат Steam ID. Steam ID должен состоять только из цифр.")
+        return
+
+    if steam_id in tracked_users:
+        await message.reply(f"Отслеживание пользователя Steam ID {steam_id} уже включено.")
+        return
+
+    tracked_users[steam_id] = message.chat.id
+    await message.reply(f"Начинаю отслеживать активность пользователя Steam ID {steam_id}.")
+
+    # Запускаем отслеживание активности
+    asyncio.create_task(track_user_activity(steam_id, message.chat.id))
+
+# Обработчик команды /untrack {steam_id}
+@dp.message_handler(commands=['untrack'])
+async def stop_tracking(message: types.Message):
+    args = message.get_args()
+    if not args:
+        await message.reply("Пожалуйста, укажите Steam ID после команды. Пример: /untrack 76561197960435530")
+        return
+    steam_id = args.strip()
+
+    if steam_id not in tracked_users:
+        await message.reply(f"Пользователь Steam ID {steam_id} не отслеживается.")
+        return
+
+    del tracked_users[steam_id]  # Удаляем пользователя из списка отслеживаемых
+    await message.reply(f"Отслеживание пользователя Steam ID {steam_id} остановлено.")
+
 @dp.message_handler()
 async def some_message(msg: types.Message):
-    # Создаем инлайн-кнопку с командой /steam (в данном случае, Steam ID нужно будет ввести вручную)
-    steam_button = InlineKeyboardButton("Получить информацию об играх на аккаунте", callback_data="get_steam_games")
+    # Создаем инлайн-кнопку
+    steam_button = InlineKeyboardButton("Отслеживать активность Steam", callback_data="track_steam_activity")
     keyboard = InlineKeyboardMarkup().add(steam_button)
 
-    # Отправляем сообщение с инлайн-клавиатурой
-    await msg.reply("Нажмите кнопку ниже для получения статистики из игр аккаунта Steam.", reply_markup=keyboard)
+    await msg.reply("Нажмите кнопку ниже, чтобы начать отслеживать активность Steam.", reply_markup=keyboard)
 
-
-# Обработчик нажатия на инлайн-кнопку
-@dp.callback_query_handler(lambda c: c.data == 'get_steam_games')
-async def process_callback_get_steam_games(callback_query: types.CallbackQuery):
+@dp.callback_query_handler(lambda c: c.data == 'track_steam_activity')
+async def process_callback_track_steam(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "Введите команду /steam {Ваш Steam ID}, чтобы получить список игр.")
+    await bot.send_message(callback_query.from_user.id, "Введите команду /track {Ваш Steam ID}, чтобы начать отслеживать активность.")
 
 
 if __name__ == '__main__':
