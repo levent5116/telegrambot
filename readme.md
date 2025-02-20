@@ -1,6 +1,6 @@
 # Telegram бот для отслеживания игровой активности Steam (Родительский контроль в telegram)
 
-ССЫЛКА НА ВИДЕО С РАЮОТОЙ БОТА: https://disk.yandex.ru/d/JOd30X20Ctwokw
+ССЫЛКА НА ВИДЕО С РАБОТОЙ БОТА: https://disk.yandex.ru/d/JOd30X20Ctwokw
 
 ## Описание
 
