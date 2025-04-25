@@ -312,3 +312,16 @@ async def process_callback_track_steam(callback_query: types.CallbackQuery):
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
+
+
+from database import (
+    get_db_connection,
+    add_user,
+    add_profile,
+    get_user_profiles,
+    delete_profile,
+    start_tracking,
+    stop_tracking,
+    get_active_tracking,
+    update_tracking_status
+)
